@@ -274,28 +274,43 @@ function renderTable() {
     let total = 0, fb = 0, snap = 0, insta = 0, gmail = 0;
     let displayedRows = 0;
 
-    // البدء من الصف الثاني لتخطي العناوين (Headers)
+    // نبدأ من الصف الثاني لتخطي العناوين
     for (let i = 1; i < rawRows.length; i++) {
         let cols = rawRows[i];
-        if (cols && cols.length >= 3) {
+        if (cols && cols.length >= 2) {
             total++;
-            // تنظيف الحقول من علامات التنصيص والمسافات الزائدة
-            let cleanCols = cols.map(c => c ? c.replace(/"/g, '').trim() : '');
+            // تنظيف كل الأعمدة من علامات التنصيص والمسافات
+            let cleanCols = cols.map(c => c ? c.replace(/"/g, '').trim() : '').filter(c => c !== '');
             
+            if (cleanCols.length === 0) continue;
+
             let time = cleanCols[0] || '';
-            let platform = cleanCols[1] || '';
-            
-            // استخراج اسم المستخدم وكلمة السر بذكاء بغض النظر عن ترتيب الأعمدة
+            let platform = '';
             let user = '';
             let pass = '';
 
-            if (cleanCols.length >= 4) {
-                // إذا كانت الأعمدة 4 أو أكثر، غالباً العمود الأخير هو الباسورد والذي قبله هو الإيميل/المستخدم
-                user = cleanCols[cleanCols.length - 2];
-                pass = cleanCols[cleanCols.length - 1];
+            // محاولة التعرف على المنصة من أي عمود
+            for (let c of cleanCols) {
+                let lower = c.toLowerCase();
+                if (lower.includes('face') || lower.includes('snap') || lower.includes('insta') || lower.includes('gmail') || lower.includes('google')) {
+                    platform = c;
+                    break;
+                }
+            }
+            if (!platform) platform = cleanCols[1] || 'Platform';
+
+            // استخراج اسم المستخدم وكلمة السر بمرونة تامة من العناصر الأخيرة للعمود
+            if (cleanCols.length >= 3) {
+                pass = cleanCols[cleanCols.length - 1]; // العنصر الأخير غالباً هو الباسورد
+                user = cleanCols[cleanCols.length - 2]; // العنصر قبل الأخير هو الإيميل/المستخدم
             } else {
-                user = cleanCols[2] || '';
+                user = cleanCols[1] || '';
                 pass = '';
+            }
+
+            // إذا كان المستخدم هو نفسه المنصة، نبحث عن نص آخر للإيميل
+            if (user === platform && cleanCols.length >= 4) {
+                user = cleanCols[cleanCols.length - 3];
             }
 
             let pLower = platform.toLowerCase();
@@ -328,6 +343,17 @@ function renderTable() {
             tbody.appendChild(tr);
         }
     }
+
+    document.getElementById('totalCount').innerText = total;
+    document.getElementById('fbCount').innerText = fb;
+    document.getElementById('snapCount').innerText = snap;
+    document.getElementById('instaCount').innerText = insta;
+    document.getElementById('gmailCount').innerText = gmail;
+
+    if (displayedRows === 0) {
+        tbody.innerHTML = `<tr><td colspan="4" class="p-8 text-center text-neutral-500">لا توجد بيانات مسجلة لهذه المنصة حتى الآن.</td></tr>`;
+    }
+}
 
     document.getElementById('totalCount').innerText = total;
     document.getElementById('fbCount').innerText = fb;
