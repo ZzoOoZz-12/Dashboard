@@ -146,7 +146,7 @@
         <div id="tableContainer" class="glass-dark rounded-3xl shadow-2xl overflow-hidden border border-white/5">
             <div class="p-6 border-b border-white/5 flex justify-between items-center">
                 <h3 id="tableTitle" class="text-lg font-bold">سجل البيانات الواردة</h3>
-                <span id="filterBadge" class="text-xs px-3 py-1.5 rounded-full glass-btn-dark text-neutral-300">عرض الكل</span>
+                <button id="filterBadge" onclick="resetFilter()" class="text-xs px-3 py-1.5 rounded-full glass-btn-dark text-neutral-300 transition cursor-pointer hover:bg-white/10">عرض الكل</button>
             </div>
             <div class="overflow-x-auto">
                 <table class="w-full text-right border-collapse">
